@@ -1,33 +1,63 @@
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
-public class Reminder{
+/**
+ * Represents a study reminder.
+ */
+public class Reminder {
     private int id;
     private int userID;
     private String subject;
+    private LocalDate date;
     private LocalTime time;
     private String message;
-    
-    public Reminder(int id, int userID, String subject, LocalTime time, String message){
+
+    public Reminder(int id, int userID, String subject, LocalDate date, LocalTime time, String message) {
         this.id = id;
         this.userID = userID;
         this.subject = subject;
+        this.date = date;
         this.time = time;
         this.message = message;
     }
 
-    // Getters and Setters
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
+    public int getId() {
+        return id;
+    }
 
-    public int getUserID() { return userID; }
-    public void setUserID(int userID) { this.userID = userID; }
+    public int getUserID() {
+        return userID;
+    }
 
-    public String getSubject() { return subject; }
-    public void setSubject(String subject) { this.subject = subject; }
+    public String getSubject() {
+        return subject;
+    }
 
-    public LocalTime getTime() { return time; }
-    public void setTime(LocalTime time) { this.time = time; }
+    public LocalDate getDate() {
+        return date;
+    }
 
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
+    public LocalTime getTime() {
+        return time;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    /**
+     * Formats reminder as:
+     * [id] MM/dd/yyyy h:mm AM/PM - subject: message
+     */
+    @Override
+    public String toString() {
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("h:mm a");
+
+        return "[" + id + "] " 
+               + date.format(dateFmt) + " " 
+               + time.format(timeFmt) 
+               + " - " + subject + ": " + message;
+    }
 }
