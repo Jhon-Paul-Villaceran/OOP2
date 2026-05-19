@@ -1,9 +1,10 @@
 package com.studytracker.repository;
 
-import com.studytracker.model.Subject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import com.studytracker.model.Subject;
 
 /**
  * In-memory storage for Subject objects.
@@ -32,6 +33,14 @@ public class SubjectRepository {
     }
 
     public List<Subject> findAll() { return new ArrayList<>(subjects); }
+
+    public void addLoadedSubject(Subject subject) {
+        subjects.add(subject);
+    }
+
+    public void setNextID(int nextID) {
+        this.nextID = nextID;
+    }
 
     public boolean delete(int subjectID) {
         return subjects.removeIf(s -> s.getSubjectID() == subjectID);
