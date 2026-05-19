@@ -1,5 +1,6 @@
 package com.studytracker.service;
 
+import com.studytracker.model.ArchiveService;
 import com.studytracker.model.Subject;
 import com.studytracker.model.StudySession;
 import com.studytracker.model.User;
@@ -133,5 +134,22 @@ public class StudyTrackerService {
      */
     public void viewProgress(User user) {
         user.viewProgress();
+    }
+
+    // --- Archive ---
+
+    public boolean archiveSession(int sessionID) {
+        StudySession session = sessionRepo.findByID(sessionID);
+        if (session == null) return false;
+        archiveService.archiveSession(session);
+        return true;
+    }
+
+    public boolean unarchiveSession(int sessionID) {
+        return archiveService.unarchiveSession(sessionID);
+    }
+
+    public List<StudySession> getArchivedSessions(int userID) {
+        return archiveService.getArchivedSessions(userID);
     }
 }
