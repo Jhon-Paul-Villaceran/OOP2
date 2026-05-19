@@ -1,3 +1,5 @@
+package com.studytracker.model;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,7 +29,9 @@ public class User {
      */
     public static User register(int userID, String name, String email, String password) {
         if (name == null || name.isBlank()) throw new IllegalArgumentException("Name cannot be empty.");
-        if (email == null || !email.contains("@")) throw new IllegalArgumentException("Invalid email.");
+        if (email == null || !email.contains("@") || !email.toLowerCase().contains("gmail") || !email.toLowerCase().endsWith(".com")) {
+            throw new IllegalArgumentException("Email must be a valid Gmail address.");
+        }
         if (password == null || password.length() < 6) throw new IllegalArgumentException("Password must be at least 6 characters.");
         return new User(userID, name, email, password);
     }
@@ -49,6 +53,17 @@ public class User {
         return session;
     }
 
+    public void addLoadedSession(StudySession session) {
+        sessions.add(session);
+        if (!session.isArchived()) {
+            tracker.updateStats(session.getDurationMinutes(), session.getDate());
+        }
+    }
+
+    public void refreshTracker() {
+        tracker.rebuildStats();
+    }
+
     /**
      * Displays progress summary via the tracker.
      */
@@ -65,6 +80,7 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public void setPassword(String password) { this.password = password; }
+    public String getPassword() { return password; }
     public Tracker getTracker() { return tracker; }
     public List<StudySession> getSessions() { return sessions; }
 
