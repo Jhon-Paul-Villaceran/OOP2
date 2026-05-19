@@ -1,5 +1,3 @@
-package com.studytracker.service;
-
 import com.studytracker.model.ArchiveService;
 import com.studytracker.model.Subject;
 import com.studytracker.model.StudySession;
@@ -12,6 +10,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
+
 /**
  * Central service layer: handles all business logic for the Study Habit Tracker.
  */
@@ -20,11 +22,13 @@ public class StudyTrackerService {
     private final UserRepository userRepo;
     private final SubjectRepository subjectRepo;
     private final StudySessionRepository sessionRepo;
+    private final ReminderRepository reminderRepo;
 
     public StudyTrackerService() {
         this.userRepo = new UserRepository();
         this.subjectRepo = new SubjectRepository();
         this.sessionRepo = new StudySessionRepository();
+        this.reminderRepo = new ReminderRepository();
     }
 
     // ─────────────── USER ───────────────
@@ -152,4 +156,72 @@ public class StudyTrackerService {
     public List<StudySession> getArchivedSessions(int userID) {
         return archiveService.getArchivedSessions(userID);
     }
+
+    //---------------Reminder---------------
+ 
+    /**
+     * Creates a new reminder for a user.
+     */
+    public Reminder createReminder(int userID, String subject, LocalDate date, LocalTime time, String message) {
+        return reminderRepo.save(userID, subject, date, time, message);
+    }
+
+    /**
+     * Gets all reminders for one user.
+     */
+    public List<Reminder> getUserReminders(int userID) {
+        return reminderRepo.findByUser(userID);
+    }
+
+    /**
+     * Deletes a reminder by ID, only if it belongs to the specified user.
+     */
+    public boolean removeReminder(int reminderID, int userID) {
+        return reminderRepo.delete(reminderID, userID);
+    }
+
+    /**
+     * Displays reminders above the main menu.
+     * Shows OVERDUE for past reminders and today if time passed.
+     * Shows TODAY for today if time not yet passed.
+     * Shows TOMORROW for exactly 1 day from now.
+     * Shows IN X DAYS for any future reminder.
+     */
+    public void showReminderPopup(int userID) {
+        List<Reminder> reminders = reminderRepo.findByUser(userID);
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        boolean found = false;
+
+        for (Reminder r : reminders) {
+            LocalDate reminderDate = r.getDate();
+            String label = null;
+
+            if (reminderDate.isBefore(today)) {
+                label = "[OVERDUE]  ";
+            } else if (reminderDate.equals(today)) {
+                if (now.isAfter(r.getTime())) {
+                    label = "[OVERDUE]  ";
+                } else {
+                    label = "[TODAY]    ";
+                }
+            } else {
+                long daysUntil = ChronoUnit.DAYS.between(today, reminderDate);
+                if (daysUntil == 1) {
+                    label = "[TOMORROW] ";
+                } else {
+                    label = "[IN " + daysUntil + " DAYS] ";
+                }
+            }
+
+            if (!found) {
+                System.out.println("
++--------------------------------------+");
+                System.out.println("|         REMINDER ALERT!              |");
+                System.out.println("+--------------------------------------+");
+                found = true;
+            }
+
+            System.out.println(label + r);
+        }
 }
