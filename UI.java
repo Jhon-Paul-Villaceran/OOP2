@@ -32,8 +32,10 @@ public class ConsoleUI {
         System.out.println("║     Study Habit Tracker System       ║");
         System.out.println("╚══════════════════════════════════════╝");
 
-        // Seed some subjects on startup
-        seedDefaultSubjects();
+        // Seed default subjects for a fresh in-memory tracker.
+        if (service.getAllSubjects().isEmpty()) {
+            seedDefaultSubjects();
+        }
 
         boolean running = true;
         while (running) {
@@ -88,6 +90,7 @@ public class ConsoleUI {
         if (user.isPresent()) {
             currentUser = user.get();
             System.out.println("Welcome back, " + currentUser.getName() + "!");
+            service.getReminder(currentUser).ifPresent(System.out::println);
         } else {
             System.out.println("Invalid email or password.");
         }
@@ -96,16 +99,18 @@ public class ConsoleUI {
     // ─────────────── MAIN MENU ───────────────
 
     private boolean showMainMenu() {
+        int archivedCount = service.getArchivedSessionsByUser(currentUser.getUserID()).size();
         System.out.println("\n=== [" + currentUser.getName() + "] ===");
+        System.out.println("Active sessions: " + service.getSessionsByUser(currentUser.getUserID()).size() + " | Archived: " + archivedCount);
         System.out.println("1. Add study session");
         System.out.println("2. View my sessions");
         System.out.println("3. Update a session");
         System.out.println("4. Delete a session");
         System.out.println("5. Add log note to session");
         System.out.println("6. View progress & streak");
-        System.out.println("7. Manage subjects");
-        System.out.println("8. Search sessions");
-        System.out.println("9. Archive sessions");
+        System.out.println("7. Search sessions");
+        System.out.println("8. Archive session");
+        System.out.println("9. View archived sessions");
         System.out.println("10. Logout");
         System.out.println("0. Exit");
         System.out.print("Choose: ");
@@ -118,9 +123,10 @@ public class ConsoleUI {
             case "4": handleDeleteSession(); break;
             case "5": handleAddLog(); break;
             case "6": service.viewProgress(currentUser); break;
-            case "7": handleManageSubjects(); break;
-            case "8": handleSearchSessions(); break;
-            case "9": currentUser = null; System.out.println("Logged out."); break;
+            case "7": handleSearchSessions(); break;
+            case "8": handleArchiveSessions(); break;
+            case "9": handleViewArchivedSessions(); break;
+            case "10": currentUser = null; System.out.println("Logged out."); break;
             case "0": return false;
             default: System.out.println("Invalid option.");
         }
@@ -138,8 +144,25 @@ public class ConsoleUI {
         }
         System.out.println("Available subjects:");
         subjects.forEach(s -> System.out.println("  " + s.getSubjectID() + ". " + s.getSubjectName()));
-        System.out.print("Subject name: ");
+        System.out.print("Subject ID or name: ");
         String subj = scanner.nextLine().trim();
+        if (subj.isBlank()) {
+            System.out.println("Subject is required.");
+            return;
+        }
+
+        Optional<Subject> subjectOpt = Optional.empty();
+        try {
+            int subjectID = Integer.parseInt(subj);
+            subjectOpt = service.findSubjectByID(subjectID);
+        } catch (NumberFormatException ignored) {
+            subjectOpt = service.findSubject(subj);
+        }
+
+        if (subjectOpt.isEmpty()) {
+            System.out.println("Subject not found.");
+            return;
+        }
 
         LocalDate date = readDate("Date (yyyy-MM-dd) [Enter for today]: ", LocalDate.now());
         System.out.print("Duration (minutes): ");
@@ -151,7 +174,7 @@ public class ConsoleUI {
         String notes = scanner.nextLine().trim();
 
         try {
-            StudySession session = service.logSession(currentUser, subj, date, duration, notes);
+            StudySession session = service.logSession(currentUser, subjectOpt.get().getSubjectName(), date, duration, notes);
             System.out.println("Session logged: " + session);
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
@@ -198,44 +221,19 @@ public class ConsoleUI {
         System.out.println(ok ? "Note added." : "Session not found.");
     }
 
-    // ─────────────── SUBJECTS ───────────────
-
-    private void handleManageSubjects() {
-        System.out.println("\n-- Subjects --");
-        System.out.println("1. View subjects");
-        System.out.println("2. Add subject");
-        System.out.println("3. Delete subject");
-        System.out.print("Choose: ");
-        String c = scanner.nextLine().trim();
-        switch (c) {
-            case "1":
-                service.getAllSubjects().forEach(s -> System.out.println("  [" + s.getSubjectID() + "] " + s.getSubjectName()));
-                break;
-            case "2":
-                System.out.print("Subject name: ");
-                String name = scanner.nextLine().trim();
-                try { Subject sub = service.addSubject(name); System.out.println("Added: " + sub); }
-                catch (Exception e) { System.out.println("Error: " + e.getMessage()); }
-                break;
-            case "3":
-                System.out.print("Subject ID to delete: ");
-                int did = readInt();
-                System.out.println(service.deleteSubject(did) ? "Deleted." : "Not found.");
-                break;
-            default: System.out.println("Invalid.");
-        }
-    }
-
     // ─────────────── SEARCH ───────────────
 
     private void handleSearchSessions() {
         System.out.println("\n-- Search --");
         System.out.println("1. By date");
         System.out.println("2. By subject");
+        System.out.println("0. Back");
         System.out.print("Choose: ");
         String c = scanner.nextLine().trim();
         List<StudySession> results;
-        if (c.equals("1")) {
+        if (c.equals("0")) {
+            return;
+        } else if (c.equals("1")) {
             LocalDate d = readDate("Date (yyyy-MM-dd): ", null);
             if (d == null) return;
             results = service.getSessionsByDate(currentUser.getUserID(), d);
@@ -246,6 +244,43 @@ public class ConsoleUI {
 
         if (results.isEmpty()) { System.out.println("No sessions found."); return; }
         results.forEach(s -> System.out.println("  " + s));
+    }
+
+    private void handleArchiveSessions() {
+        System.out.println("\n-- Archive Session --");
+        List<StudySession> sessions = service.getSessionsByUser(currentUser.getUserID());
+        if (sessions.isEmpty()) {
+            System.out.println("No active sessions to archive.");
+            return;
+        }
+        sessions.forEach(s -> System.out.println("  " + s));
+        System.out.print("Enter Session ID to archive: ");
+        int id = readInt();
+        if (id < 0) return;
+        boolean ok = service.archiveSession(id, currentUser.getUserID());
+        System.out.println(ok ? "Session archived." : "Session not found or already archived.");
+    }
+
+    private void handleViewArchivedSessions() {
+        System.out.println("\n-- Archived Sessions --");
+        List<StudySession> archived = service.getArchivedSessionsByUser(currentUser.getUserID());
+        if (archived.isEmpty()) {
+            System.out.println("No archived sessions.");
+            return;
+        }
+        archived.forEach(s -> System.out.println("  " + s));
+        System.out.print("Enter archived Session ID to restore or press Enter to return: ");
+        String input = scanner.nextLine().trim();
+        if (input.isBlank()) return;
+        int id;
+        try {
+            id = Integer.parseInt(input);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid session ID.");
+            return;
+        }
+        boolean ok = service.unarchiveSession(id, currentUser.getUserID());
+        System.out.println(ok ? "Session restored from archive." : "Session not found or not archived.");
     }
 
     // ─────────────── HELPERS ───────────────
